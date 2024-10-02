@@ -39,31 +39,30 @@ uploaded_file = st.file_uploader("Upload your CSV file", type=["csv"])
 if uploaded_file is not None:
     df = pd.read_csv(uploaded_file)
 
-    # Shuffle the answers for randomness, keeping the original name-answer association
-    shuffled_df = df.sample(frac=1, random_state=42).reset_index(drop=True)
-
-    # Grouping by questions and displaying the corresponding answers
+    # Group by questions to display them one by one
     questions_grouped = df.groupby('question')
 
     for question, group in questions_grouped:
+        # Shuffle the answers for this specific question group
+        shuffled_group = group.sample(frac=1, random_state=42).reset_index(drop=True)
+
         with st.form(key=f'{question}_form'):
             st.write(f"### Question: {question}")
             
-            # Create a dataframe for displaying the question's answers
+            # Create a dataframe to show the shuffled answers and take user guesses
             display_data = pd.DataFrame({
-                'Answer': group['answer'].values,
-                'Your Guess': ['' for _ in range(len(group))],
+                'Answer': shuffled_group['answer'],  # Display shuffled answers
+                'Your Guess': ['' for _ in range(len(shuffled_group))],
             })
 
             # Store guesses for this question
             guesses = {}
 
-            for idx, (i, row) in enumerate(group.iterrows()):
+            for idx, row in shuffled_group.iterrows():
                 answer = row['answer']
-                correct_name = row['name']
-                
-                guess = st.selectbox(f"Who gave this answer? (Answer: {answer})", df['name'].unique(), key=f'{question}_answer_{i}')
-                guesses[f'{question}_answer_{i}'] = guess
+                # Let the user select who gave the shuffled answer
+                guess = st.selectbox(f"Who gave this answer? (Answer: {answer})", group['name'].unique(), key=f'{question}_answer_{idx}')
+                guesses[f'{question}_answer_{idx}'] = guess
                 
                 display_data.at[idx, 'Your Guess'] = guess
 
@@ -72,9 +71,10 @@ if uploaded_file is not None:
             if submitted:
                 correct_count = 0
 
-                for idx, (i, row) in enumerate(group.iterrows()):
-                    correct_name = row['name']
-                    user_guess = guesses[f'{question}_answer_{i}']
+                # Check if guesses match the original names
+                for idx, row in shuffled_group.iterrows():
+                    correct_name = row['name']  # This is the original name
+                    user_guess = guesses[f'{question}_answer_{idx}']
 
                     if user_guess == correct_name:
                         display_data.at[idx, 'Result'] = '✔️ Correct'
